@@ -19,6 +19,7 @@ class UIMFReader(object):
             [['CalibrationSlope','CalibrationIntercept']].to_dict(orient='index')
         self.__bin_width = self.global_params[self.global_params.ParamName=="BinWidth"].ParamValue.tolist()[0]
         self.__num_frames = int(self.global_params[self.global_params.ParamName=="NumFrames"].ParamValue.tolist()[0])
+        self.__num_scans = int(self.global_params[self.global_params.ParamName=="PrescanTOFPulses"].ParamValue.tolist()[0])
         self.__average_TOF_length_by_frame = self.__get_average_TOF_lengths()
         self.mz_calibrator_by_params = dict()
 
@@ -31,6 +32,9 @@ class UIMFReader(object):
     @property
     def num_frames(self):
         return self.__num_frames
+    @property
+    def num_scans(self):
+        return self.__num_scans
     
     def average_TOF_length(self, frame):
         return self.__average_TOF_length_by_frame[frame]
