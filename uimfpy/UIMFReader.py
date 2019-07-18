@@ -22,6 +22,8 @@ class UIMFReader(object):
         self.__num_scans = int(self.global_params[self.global_params.ParamName=="PrescanTOFPulses"].ParamValue.tolist()[0])
         self.__average_TOF_length_by_frame = self.__get_average_TOF_lengths()
         self.mz_calibrator_by_params = dict()
+        for i in range(self.num_frames):
+            self.get_mz_calibrator(frame_num=i)
 
     @property
     def calibration_params_by_frame(self):
@@ -90,6 +92,8 @@ class UIMFReader(object):
         return avg_tof_length
 
     def get_mz_calibrator(self, frame_num=1):
+        if frame_num not in self.calibration_params_by_frame: return None
+        
         params = self.calibration_params_by_frame[frame_num]
         slope, intercept = params['CalibrationSlope'], params['CalibrationIntercept']
         
@@ -112,6 +116,7 @@ class UIMFReader(object):
     def __mz_binning(self, frame_arr, scan_arr, int_arr):
         stime = time.time()
         mz_intensities = dict()
+        mzbin_ranges = None
         for f, s, i in zip(frame_arr, scan_arr, int_arr):
             mz_calibrator = self.get_mz_calibrator(frame_num=f)
             
@@ -131,7 +136,20 @@ class UIMFReader(object):
         df = self.read_frame_scans(frame_nums=frame_nums, scan_nums=scan_nums)
         return self.__mz_binning(df.FrameNum.values,
                                  df.ScanNum.values,
-                                 df.Intensities.values)
+                                 df.Intensities.values
+                                )
         
     def __get_drift_ms(self, frame_num, scan_num):
         return self.__average_TOF_length_by_frame[frame_num] * scan_num * 1e-6
+    
+    def get_mzbin_ranges_by_mz_window(self, start_mz, end_mz, ppm):
+        mz_calibrator_by_params = self.mz_calibrator_by_params
+        mzbin_ranges_by_params = dict()
+        for params in mz_calibrator_by_params:
+            mz_calibrator = mz_calibrator_by_params[params]
+            _max = end_mz*(1+ppm*1e-6)
+            _min = start_mz*(1-ppm*1e-6)
+            _minbin = int(mz_calibrator.MZtoBin(_min))+1
+            _maxbin = int(mz_calibrator.MZtoBin(_max))+1
+            mzbin_ranges_by_params[params] = [_minbin, _maxbin]
+        return mzbin_ranges_by_params
