@@ -6,8 +6,16 @@ import struct
 
 def decompress(byte_intensity):
     '''decompress the intensity byte-array'''
-    dc = lzf.decompress(byte_intensity, 2*len(byte_intensity))
-    arr = np.frombuffer(dc, dtype=np.int32)
+    arr = np.array([], dtype=np.int32)
+    try:
+        dc = lzf.decompress(byte_intensity, 4*len(byte_intensity))
+        arr = np.frombuffer(dc, dtype=np.int32)
+    except AttributeError as error:
+        # Output expected AttributeErrors.
+        print(error)
+    except Exception as exception:
+        # Output unexpected Exceptions.
+        print(exception)
     return arr
 
 @jit
