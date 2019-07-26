@@ -21,9 +21,13 @@ class UIMFReader(object):
         self.__num_frames = int(self.global_params[self.global_params.ParamName=="NumFrames"].ParamValue.tolist()[0])
         self.__num_scans = int(self.global_params[self.global_params.ParamName=="PrescanTOFPulses"].ParamValue.tolist()[0])
         self.__average_TOF_length_by_frame = self.__get_average_TOF_lengths()
+        self.__TOF_lengths_by_frame = [self.__average_TOF_length_by_frame[f] for f in self.__average_TOF_length_by_frame]
+        self.__average_TOF_length = np.mean(self.__TOF_lengths_by_frame)
+        self.__stdv_TOF_length = np.std(self.__TOF_lengths_by_frame)
         self.mz_calibrator_by_params = dict()
         for i in range(self.num_frames):
             self.get_mz_calibrator(frame_num=i)
+        self.summary()
 
     @property
     def calibration_params_by_frame(self):
@@ -37,6 +41,9 @@ class UIMFReader(object):
     @property
     def num_scans(self):
         return self.__num_scans
+
+    def drift_ms(self, scan_num):
+        return self.__average_TOF_length * scan_num * 1e-6
     
     def average_TOF_length(self, frame):
         return self.__average_TOF_length_by_frame[frame]
@@ -47,6 +54,12 @@ class UIMFReader(object):
         conn.close()
         return df
     
+    def summary(self):
+        print("#"*100)
+        print("# Average TOF length: {:.1f} ({:.1f})".format(self.__average_TOF_length, self.__stdv_TOF_length))
+        print("# M/Z calibrators by params: {}".format(self.mz_calibrator_by_params))
+        print("#"*100)
+
     def read_frame_scans(self, frame_nums=None, scan_nums=None):
         selected_columns = "FrameNum,ScanNum,Intensities,NonZeroCount"
         if frame_nums is not None:
