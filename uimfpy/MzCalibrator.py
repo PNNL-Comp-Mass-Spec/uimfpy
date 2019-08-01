@@ -1,3 +1,5 @@
+import numpy as np
+
 class MzCalibrator(object):
     '''Calibrate TOF to m/z according to formula
         mass = (k * (t-t0))^2
@@ -16,7 +18,7 @@ class MzCalibrator(object):
         return r**2
     
     def BinToTOF(self, _bin):
-        return float(_bin) * self.TenthsOfNanoSecondsPerBin
+        return _bin.astype(float) * self.TenthsOfNanoSecondsPerBin
     
     def MZtoBin(self, mz):
         return self.TOFtoBin(self.MZtoTOF(mz))
@@ -25,4 +27,4 @@ class MzCalibrator(object):
         return TOFValue / self.TenthsOfNanoSecondsPerBin
     
     def MZtoTOF(self, mz):
-        return int((np.sqrt(mz) / self.K) + self.T0)
+        return ((np.sqrt(mz) / self.K) + self.T0).astype(int)

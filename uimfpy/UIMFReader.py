@@ -6,6 +6,8 @@ import time
 from uimfpy.utils import decode, decompress
 from uimfpy.MzCalibrator import MzCalibrator
 
+from scipy.signal import find_peaks
+
 class UIMFReader(object):
     """UIMFReader"""
     def __init__(self, uimf_file, TIC_threshold=None):
@@ -155,14 +157,73 @@ class UIMFReader(object):
     def __get_drift_ms(self, frame_num, scan_num):
         return self.__average_TOF_length_by_frame[frame_num] * scan_num * 1e-6
     
-    def get_mzbin_ranges_by_mz_window(self, start_mz, end_mz, ppm):
+    def get_mzbin_ranges_by_mz_window(self, start_mz, end_mz, ppm=None, Da=None):
+        if ((ppm is not None) and (Da is not None))|((ppm is None) and (Da is None)): 
+            print("[ERR] either ppm or Da should be None")
+            return None
         mz_calibrator_by_params = self.mz_calibrator_by_params
         mzbin_ranges_by_params = dict()
         for params in mz_calibrator_by_params:
             mz_calibrator = mz_calibrator_by_params[params]
-            _max = end_mz*(1+ppm*1e-6)
-            _min = start_mz*(1-ppm*1e-6)
+            if ppm is not None:
+                _max = end_mz*(1+ppm*1e-6)
+                _min = start_mz*(1-ppm*1e-6)
+            elif Da is not None:
+                _max = end_mz+Da
+                _min = start_mz-Da
             _minbin = int(mz_calibrator.MZtoBin(_min))+1
             _maxbin = int(mz_calibrator.MZtoBin(_max))+1
             mzbin_ranges_by_params[params] = [_minbin, _maxbin]
         return mzbin_ranges_by_params
+
+    def get_mz(self, mz_bin):
+        mz_calibrator_by_params = self.mz_calibrator_by_params
+        mz_by_params = dict()
+        for params in mz_calibrator_by_params:
+            mz_calibrator = mz_calibrator_by_params[params]
+            mz_by_params[params] = mz_calibrator.BinToMZ(mz_bin)
+        return mz_by_params
+
+    def get_intensities_by_mzbins(self, frame_arr, scan_arr, int_arr, mzbin_ranges):
+        '''get the intesity levels for a range of mz bins
+            mzbin_ranges: [min_mzbin, max_mzbin]
+        '''
+        if len(mzbin_ranges)!=2:
+            print("[ERR] mzbin_ranges: [min_mzbin, max_mzbin]")
+            return None
+        if  mzbin_ranges[0]>mzbin_ranges[1]:
+            print("[ERR] mzbin_ranges: [min_mzbin, max_mzbin], mzbin_ranges[0]<=mzbin_ranges[1]")
+            return None
+        stime = time.time()
+        intensities_by_mzbins = { i : 0 for i in range(mzbin_ranges[0], mzbin_ranges[1]+1) }
+        for f, s, i in zip(frame_arr, scan_arr, int_arr):
+            bin_intensities = decode(decompress(i))
+            for idx, intensity in bin_intensities:
+                if (mzbin_ranges[0] <= idx) & (idx <= mzbin_ranges[1]):
+                    intensities_by_mzbins[idx] += intensity
+        # print("mz_binning for nrows:{0}, Done: Time: {1:.3f} s".format(
+        #     len(frame_arr), time.time()-stime))
+        return intensities_by_mzbins
+
+    def get_charge_state(self, mz, frame_nums, scan_nums):
+        '''get the charge state with the given frames and scans
+            given mz, we use [mz-1.2, mz+2.2] window
+        '''
+        # collect mz bins
+        mzbin_ranges = self.get_mzbin_ranges_by_mz_window(mz-1.2, mz+2.2, Da=0)
+        mzbin_ranges = next(iter(mzbin_ranges.values()))
+        # collect intensities within a range
+        df = self.read_frame_scans(frame_nums=frame_nums, scan_nums=scan_nums)
+        intensities_by_mzbins = self.get_intensities_by_mzbins(df.FrameNum.values, df.ScanNum.values, df.Intensities.values, mzbin_ranges)
+        mz_bins = np.array([i for i in intensities_by_mzbins])
+        mz_int = np.array([intensities_by_mzbins[i] for i in intensities_by_mzbins])
+        # find peaks based on the intensity levels
+        peaks_idx, _ = find_peaks(mz_int, distance=2)
+        valid_peak_idxs = peaks_idx[mz_int[peaks_idx]>np.max(mz_int)*0.1]
+        mz = self.get_mz(mz_bins)
+        # use the first param
+        mz = next(iter(mz.values()))
+        peak_mz = mz[valid_peak_idxs]
+        peak_diff = np.diff(peak_mz)
+        charge_state = (1/peak_diff).mean().round()
+        return charge_state, mz, mz_int, valid_peak_idxs
