@@ -8,14 +8,14 @@ def decompress(byte_intensity):
     '''decompress the intensity byte-array'''
     arr = np.array([], dtype=np.int32)
     try:
-        dc = lzf.decompress(byte_intensity, 4*len(byte_intensity))
+        dc = lzf.decompress(byte_intensity, 100*len(byte_intensity))
         arr = np.frombuffer(dc, dtype=np.int32)
     except AttributeError as error:
         # Output expected AttributeErrors.
         print(error)
     except Exception as exception:
         # Output unexpected Exceptions.
-        print(exception)
+        print(exception, byte_intensity, dc, arr)
     return arr
 
 @jit
@@ -40,3 +40,7 @@ def decode(intensity_array):
 def get_bin_number(mz, nshifts=35):
     b = struct.pack('<d', mz)
     return struct.unpack("<q", b)[0] >> nshifts
+
+
+def ppm_error(exact_mz, observed_mz):
+    return 1e6*(observed_mz-exact_mz)/observed_mz
