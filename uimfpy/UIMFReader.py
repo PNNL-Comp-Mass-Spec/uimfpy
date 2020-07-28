@@ -46,6 +46,9 @@ class UIMFReader(object):
     @property
     def num_scans(self):
         return self.__num_scans
+    
+    def get_start_times(self):
+        return self.__run_query("select FrameNum, ParamValue from frame_Params where ParamID = 1")
 
     def drift_ms(self, scan_num):
         return self.__average_TOF_length * scan_num * 1e-6
