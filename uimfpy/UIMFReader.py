@@ -294,3 +294,59 @@ class UIMFReader(object):
             arr = None
         
         return xic_by_mzbin
+
+    def get_data_in_deimos_format(self):
+        # First read the frame scans to get the frame-scan mapping in case the continous scans are missing 
+        frame_scans = self.read_frame_scans()
+        
+        # Now we need retention time or start time along with the frame numbers and frame type 
+        retention_time = self.__run_query('SELECT FrameNum,StartTime, FrameType FROM Frame_Parameters;')
+        # Check for the Frame types
+        FrameType = set(list(retention_time["FrameType"]))
+        
+        #Need to create mapping to separate the data into frame types and then frame numbers wrt to their starttime for later
+        mapping = {}
+        for ftype in FrameType:
+            mapping[ftype] = {}
+            currentdf = retention_time.loc[retention_time["FrameType"]==ftype]
+
+            for r in range(len(currentdf)):
+                mapping[ftype][currentdf.iloc[r]["FrameNum"]] = currentdf.iloc[r]["StartTime"]
+        
+        # Initilize a dictionary to save the results for different frametypes 
+        finalresult = {}
+        
+        #Iterating through all frame types
+        for ftype in FrameType:
+            # Getting all the frame numbers in int from the mapping
+            frames_type = list(mapping[ftype].keys())
+            frames_type = [int(i) for i in frames_type]
+            
+            #Initilizing lists to convert the data in deimos format 
+            mz, intensity, drift, retension = [],[],[],[]
+            
+            #Iterating through all the frames in the frame type
+            for fr in frames_type:
+                all_scans = list(frame_scans.loc[frame_scans["FrameNum"]==fr]["ScanNum"])
+                
+                #Got all the scans in that frame and now iterating over the scans 
+                for sc in all_scans:
+                    #get peaks for the frame number and scan pair 
+                    result = self.get_mz_peaks(fr, sc)
+                    #Add mz values to mz list 
+                    mz.extend(result[(fr, sc)]["mz"])
+                    #Add intensities to the intensity list 
+                    intensity.extend(result[(fr,sc)]["int"])
+                    #Add retension time and drift time. Here we need the single values to be converted into the lengths of mz-intensity result  
+                    retension.extend([mapping[ftype][fr]]*len(result[(fr,sc)]["mz"]))
+                    drifttime = self.__get_drift_ms(fr,sc)
+                    drift.extend([drifttime]*len(result[(fr,sc)]["mz"]))
+            #Form a dataframe for the frame type 
+            data = pd.DataFrame()
+            data["mz"] = np.array(mz)
+            data["intensity"] = np.array(intensity)
+            data["drift_time"] = np.array(drift)
+            print(len(mz), len(intensity), len(drift), len(retension))
+            data["retension_time"] = np.array(retension)
+            finalresult["ms"+str(ftype)] = data 
+        return finalresult
