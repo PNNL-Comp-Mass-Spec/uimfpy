@@ -346,7 +346,6 @@ class UIMFReader(object):
             data["mz"] = np.array(mz)
             data["intensity"] = np.array(intensity)
             data["drift_time"] = np.array(drift)
-            print(len(mz), len(intensity), len(drift), len(retension))
-            data["retension_time"] = np.array(retension)
+            data["retention_time"] = np.array(retension)
             finalresult["ms"+str(ftype)] = data 
         return finalresult
