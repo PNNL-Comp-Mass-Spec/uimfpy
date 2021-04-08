@@ -145,7 +145,7 @@ class UIMFReader(object):
             bin_intensities = decode(decompress(i))
             num_bins = len(bin_intensities)
             _mz_arr = np.zeros(num_bins)
-            _int_arr = np.zeros(num_bins, dtype=np.uint16)
+            _int_arr = np.zeros(num_bins, dtype=np.uint32)
             for k, (idx, intensity) in enumerate(bin_intensities):
                 _mz_arr[k] = idx
                 _int_arr[k] = intensity
