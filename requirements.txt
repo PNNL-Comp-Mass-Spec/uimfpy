@@ -1,6 +1,5 @@
-lzf >=0.2.4
+python-lzf >=0.2.4
 matplotlib >=3.6.2
 numpy >=1.23.5
 numba >=0.56.4
 pandas >=1.5.2
-sqlite3 >=3.40.0
