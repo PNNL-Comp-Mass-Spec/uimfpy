@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-with open('deimos/__init__.py') as f:
+with open('uimfpy/__init__.py') as f:
     exec([x for x in f.readlines() if '__version__' in x][0])
 
 with open('README.md') as f:
