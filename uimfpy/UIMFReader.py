@@ -323,7 +323,7 @@ class UIMFReader(object):
 
         return xic_by_mzbin
 
-    def get_data_in_deimos_format(self):
+    def to_dataframe(self):
         # First read the frame scans to get the frame-scan mapping in case the continous scans are missing
         frame_scans = self.read_frame_scans()
 
