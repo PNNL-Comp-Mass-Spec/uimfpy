@@ -31,7 +31,7 @@ class TestUIMFReader(unittest.TestCase):
 
     def test_bin_width(self):
         print("The bin width:", self.reader.bin_width)
-        self.assertEqual(self.reader.bin_width, '1.0')
+        self.assertEqual(self.reader.bin_width, 1.0)
 
     def test_num_frames(self):
         print("The number of frames:", self.reader.num_frames)
