@@ -172,8 +172,8 @@ class UIMFReader(object):
             else:
                 mz_intensities[(f, s)] = {"mz": _mz_arr.astype(
                     np.uint32), "int": _int_arr}
-        print("mz_binning for nrows:{0}, Done: Time: {1:.3f} s".format(
-            len(frame_arr), time.time()-stime))
+        # print("mz_binning for nrows:{0}, Done: Time: {1:.3f} s".format(
+        #     len(frame_arr), time.time()-stime))
         return mz_intensities
 
     def get_mz_peaks(self, frame_nums, scan_nums=None, calibrated=True):
@@ -306,12 +306,12 @@ class UIMFReader(object):
                                    scan_nums=list(range(scan_start-padding_scans, scan_end+padding_scans)))
         self.__get_xic_target_mzbins(df.FrameNum.values, df.ScanNum.values, df.Intensities.values,
                                      target_mzbins, xic_by_mzbin, sig_th)
-        print("Frame:[{0}-{1}], Scan:[{2}-{3}] Done: Time: {4:.3f} s".format(
-            frame_start,
-            frame_end,
-            scan_start,
-            scan_end,
-            time.time()-stime))
+        # print("Frame:[{0}-{1}], Scan:[{2}-{3}] Done: Time: {4:.3f} s".format(
+        #     frame_start,
+        #     frame_end,
+        #     scan_start,
+        #     scan_end,
+        #     time.time()-stime))
 
         for mzbin in xic_by_mzbin:
             _l = xic_by_mzbin[mzbin]
@@ -334,7 +334,7 @@ class UIMFReader(object):
         # Check for the Frame types
         FrameType = set(list(retention_time["FrameType"]))
 
-        # Need to create mapping to separate the data into frame types 
+        # Need to create mapping to separate the data into frame types
         # and then frame numbers wrt to their start time for later
         mapping = {}
         for ftype in FrameType:
