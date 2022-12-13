@@ -327,67 +327,36 @@ class UIMFReader(object):
         # First read the frame scans to get the frame-scan mapping in case the continous scans are missing
         frame_scans = self.read_frame_scans()
 
-        # Now we need retention time or start time along with the frame numbers and frame type
-        retention_time = self.__run_query(
-            'SELECT FrameNum,StartTime, FrameType FROM Frame_Parameters;')
+        # Get mz peaks from frame -> scan
+        data = self.get_mz_peaks(frame_nums=np.arange(1, frame_scans['FrameNum'].max() + 1),
+                                 scan_nums=np.arange(1, frame_scans['ScanNum'].max() + 1))
 
-        # Check for the Frame types
-        FrameType = set(list(retention_time["FrameType"]))
+        # Count elements
+        n = sum([len(x['mz']) for x in data.values()])
 
-        # Need to create mapping to separate the data into frame types
-        # and then frame numbers wrt to their start time for later
-        mapping = {}
-        for ftype in FrameType:
-            mapping[ftype] = {}
-            currentdf = retention_time.loc[retention_time["FrameType"] == ftype]
+        # Unpack mz, frames, scans
+        arr = np.empty((n, 4), dtype=np.float32)
+        counter = 0
+        for (frame, scan), v in data.items():
+            mz = v['mz']
+            intensity = v['int']
+            arr[counter:counter + len(mz), 0] = frame
+            arr[counter:counter + len(mz), 1] = scan
+            arr[counter:counter + len(mz), 2] = mz
+            arr[counter:counter + len(mz), 3] = intensity
 
-            for r in range(len(currentdf)):
-                mapping[ftype][currentdf.iloc[r]["FrameNum"]
-                               ] = currentdf.iloc[r]["StartTime"]
+            counter += len(mz)
 
-        # Initialize a dictionary to save the results for different frametypes
-        finalresult = {}
+        # Convert to data frame
+        arr = pd.DataFrame(arr, columns=['frame', 'scan', 'mz', 'intensity'])
 
-        # Iterate through all frame types
-        for ftype in FrameType:
-            # Getting all the frame numbers in int from the mapping
-            frames_type = list(mapping[ftype].keys())
-            frames_type = [int(i) for i in frames_type]
+        # Convert frame to retention time
+        rt_lookup = {k: np.float32(v)
+                     for k, v in self.get_start_times().values}
+        arr['retention_time'] = arr['frame'].replace(rt_lookup)
 
-            # Initialize lists to convert the data in deimos format
-            mz, intensity, drift, retention = [], [], [], []
+        # Convert scan to drift time
+        arr['drift_time'] = self.drift_ms(arr['scan'].values)
 
-            # Iterating through all the frames in the frame type
-            for fr in frames_type:
-                all_scans = list(
-                    frame_scans.loc[frame_scans["FrameNum"] == fr]["ScanNum"])
-
-                # Got all the scans in that frame and now iterating over the scans
-                for sc in all_scans:
-                    # Get peaks for the frame number and scan pair
-                    result = self.get_mz_peaks(fr, sc)
-
-                    # Add mz values to mz list
-                    mz.extend(result[(fr, sc)]["mz"])
-
-                    # Add intensities to the intensity list
-                    intensity.extend(result[(fr, sc)]["int"])
-
-                    # Add retension time and drift time
-                    # Here we need the single values to be converted into the lengths of mz-intensity result
-                    retention.extend([mapping[ftype][fr]] *
-                                     len(result[(fr, sc)]["mz"]))
-                    drifttime = self.__get_drift_ms(fr, sc)
-                    drift.extend([drifttime]*len(result[(fr, sc)]["mz"]))
-
-            # Form a dataframe for the frame type
-            data = pd.DataFrame()
-            data["mz"] = np.array(mz)
-            data["intensity"] = np.array(intensity)
-            data["drift_time"] = np.array(drift)
-            data["retention_time"] = np.array(retention)
-
-            # Store frame type
-            finalresult["ms"+str(ftype)] = data
-
-        return finalresult
+        # Rearrange columns
+        return arr[['frame', 'scan', 'retention_time', 'drift_time', 'mz', 'intensity']]
